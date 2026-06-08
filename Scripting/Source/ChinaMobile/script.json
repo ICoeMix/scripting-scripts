@@ -12,9 +12,8 @@
     "homepage" : null
   },
   "remoteResource" : {
-    "hash" : "571cbfbfae09c4167b096de2bbc4d37b",
     "autoUpdateInterval" : 300,
-    "url" : "https:\/\/raw.githubusercontent.com\/ByteValley\/NetTool\/main\/Scripting\/Release\/中国移动.scripting"
+    "url" : "https:\/\/raw.githubusercontent.com\/ICoeMix\/scripting-scripts\/main\/Scripting\/Release\/中国移动.scripting"
   },
   "color" : "rgba(28, 140, 255,1)",
   "contributors" : [
