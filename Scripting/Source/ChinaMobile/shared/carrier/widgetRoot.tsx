@@ -129,7 +129,7 @@ export function WidgetRoot(props: { data: CarrierData; ui: UiSettings; logoPath:
 
   // ==================== 小号 ====================
 
-  if (Widget.family === "systemSmall") {
+  if (Widget.family === "small") {
     const style: SmallCardStyle = (smallCardStyle as SmallCardStyle) || ("summary" as SmallCardStyle)
 
     const rawVoiceUnit = data.voice.unit || "分钟"
@@ -171,7 +171,7 @@ export function WidgetRoot(props: { data: CarrierData; ui: UiSettings; logoPath:
 
   // ==================== 中号 ====================
 
-  if (Widget.family === "systemMedium") {
+  if (Widget.family === "medium") {
     return (
       <MediumLayout
         layout={mediumStyle}
