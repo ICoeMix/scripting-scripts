@@ -8,7 +8,7 @@
 // - 日志：启动 1 行 + 配置消费 1 行 + 缓存策略/决策 1~2 行 + 网络请求 1 行 + 渲染完成 1 行
 // - 稳定性：预览不挂死（请求超时兜底）、meta 解析容错、错误信息可读
 
-import { Widget, Text, WidgetReloadPolicy, Script, fetch } from "scripting"
+import { Widget, Text, WidgetReloadPolicy, fetch } from "scripting"
 
 import { WidgetRoot, CarrierData } from "./shared/carrier/widgetRoot"
 import { nowHHMM } from "./shared/carrier/utils/carrierUtils"
@@ -395,7 +395,6 @@ function convertToCarrierData(p: ParsedData): CarrierData {
 
 function presentWidget(element: any, reloadPolicy: WidgetReloadPolicy) {
   Widget.present(element, reloadPolicy)
-  Script.exit()
 }
 
 // =====================================================================
