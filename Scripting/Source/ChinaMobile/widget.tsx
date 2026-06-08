@@ -8,7 +8,7 @@
 // - 日志：启动 1 行 + 配置消费 1 行 + 缓存策略/决策 1~2 行 + 网络请求 1 行 + 渲染完成 1 行
 // - 稳定性：预览不挂死（请求超时兜底）、meta 解析容错、错误信息可读
 
-import { Widget, Text, WidgetReloadPolicy, fetch } from "scripting"
+import { Widget, Text, WidgetReloadPolicy, Script, fetch } from "scripting"
 
 import { WidgetRoot, CarrierData } from "./shared/carrier/widgetRoot"
 import { nowHHMM } from "./shared/carrier/utils/carrierUtils"
@@ -393,6 +393,11 @@ function convertToCarrierData(p: ParsedData): CarrierData {
   }
 }
 
+function presentWidget(element: any, reloadPolicy: WidgetReloadPolicy) {
+  Widget.present(element, reloadPolicy)
+  Script.exit()
+}
+
 // =====================================================================
 // 模块分类 · 主渲染入口
 // =====================================================================
@@ -509,14 +514,14 @@ async function render() {
     )
 
     console.log(`✅ 渲染完成 | run=${nowHHMM()} | src=${srcLabel("local", true)} | cost=${Date.now() - t0}ms | decision=${decision}`)
-    Widget.present(<WidgetRoot data={dataForRender} ui={ui} logoPath={logoPath} />, reloadPolicy)
+    presentWidget(<WidgetRoot data={dataForRender} ui={ui} logoPath={logoPath} />, reloadPolicy)
     return
   }
 
   // cache_only 且 miss：直接失败
   if (settings.cache.enabled !== false && settings.cache.mode === "cache_only") {
     console.warn("⚠️ 缓存决策：cache_only -> miss（无可用缓存）")
-    Widget.present(<Text>⚠️ 无可用缓存（cache_only）</Text>, reloadPolicy)
+    presentWidget(<Text>⚠️ 无可用缓存（cache_only）</Text>, reloadPolicy)
     return
   }
 
@@ -556,19 +561,19 @@ async function render() {
         )
 
         console.log(`✅ 渲染完成 | run=${nowHHMM()} | src=${srcLabel("local", true)} | cost=${Date.now() - t0}ms | decision=stale_fallback`)
-        Widget.present(<WidgetRoot data={dataForRender} ui={ui} logoPath={logoPath} />, reloadPolicy)
+        presentWidget(<WidgetRoot data={dataForRender} ui={ui} logoPath={logoPath} />, reloadPolicy)
         return
       }
     }
 
-    Widget.present(<Text>获取数据失败，请确保已安装重写规则。</Text>, reloadPolicy)
+    presentWidget(<Text>获取数据失败，请确保已安装重写规则。</Text>, reloadPolicy)
     return
   }
 
   const parsed = parseData(api)
   if (!parsed.ok) {
     console.error("❌ 解析失败 | parseData=not_ok")
-    Widget.present(<Text>解析数据失败，请检查返回结构。</Text>, reloadPolicy)
+    presentWidget(<Text>解析数据失败，请检查返回结构。</Text>, reloadPolicy)
     return
   }
 
@@ -599,7 +604,7 @@ async function render() {
   )
 
   console.log(`✅ 渲染完成 | run=${nowHHMM()} | src=${srcLabel("network", false)} | cost=${Date.now() - t0}ms | decision=network_ok`)
-  Widget.present(<WidgetRoot data={mergedData} ui={ui} logoPath={logoPath} />, reloadPolicy)
+  presentWidget(<WidgetRoot data={mergedData} ui={ui} logoPath={logoPath} />, reloadPolicy)
 }
 
 render()
