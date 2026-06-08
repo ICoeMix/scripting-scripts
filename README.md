@@ -13,7 +13,7 @@ https://icoemix.github.io/scripting-scripts/Scripting/Release/ChinaMobile/
 直接导入包：
 
 ```text
-https://raw.githubusercontent.com/ICoeMix/scripting-scripts/main/Scripting/Release/中國移動.scripting
+https://raw.githubusercontent.com/ICoeMix/scripting-scripts/main/Scripting/Release/中国移动.scripting
 ```
 
 ## 目录
@@ -25,5 +25,5 @@ Scripting/
 └── Release/
     ├── ChinaMobile/
     │   └── index.html
-    └── 中國移動.scripting
+    └── 中国移动.scripting
 ```
