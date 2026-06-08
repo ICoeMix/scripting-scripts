@@ -157,8 +157,9 @@ async function loadFromRewriteApi(): Promise<any> {
 
     if (r.ok) {
       const json = await r.json()
-      if (json?.fee) return json
-      console.warn("⚠️ 数据请求 | 返回结构异常 · missing=fee")
+      const body = json?.body ?? json
+      if (body?.fee || body?.plan) return body
+      console.warn("⚠️ 数据请求 | 返回结构异常 · missing=fee/plan")
       return null
     }
 
@@ -180,6 +181,10 @@ type ParsedData = {
   voice: { total: string; used: string; remain: string; unit: string }
   updateTime?: string
 }
+
+type FlowUnit = "MB" | "GB"
+type FlowVal = { total: string; used: string; remain: string; unit: FlowUnit }
+type FlowBucket = { t: number; u: number; r: number }
 
 function parseAnyDate(v: any): number | null {
   if (!v) return null
@@ -214,103 +219,105 @@ function getPlanExpireMs(plan: any): number | null {
   )
 }
 
+function num(v: any): number {
+  const n = typeof v === "number" ? v : parseFloat(v ?? "0")
+  return Number.isFinite(n) ? n : 0
+}
+
+function flowUnitFactor(unit: any): number {
+  const code = String(unit ?? "").trim().toUpperCase()
+  if (code === "05" || code === "TB" || code === "T") return 1024 * 1024
+  if (code === "04" || code === "GB" || code === "G") return 1024
+  if (code === "03" || code === "MB" || code === "M") return 1
+  if (code === "02" || code === "KB" || code === "K") return 1 / 1024
+  return 1
+}
+
+function getFlowType(item: any): "gen" | "dir" {
+  return String(item?.flowtype ?? "") === "0" ? "gen" : "dir"
+}
+
+function addFlow(bucket: FlowBucket, source: any, unit: any) {
+  const factor = flowUnitFactor(unit)
+  let t = num(source?.totalRes ?? source?.flowSumNum) * factor
+  let u = num(source?.usedRes ?? source?.flowUsdNum) * factor
+  let r = num(source?.remainRes ?? source?.flowRemainNum) * factor
+
+  if (u === 0 && t > r) u = t - r
+  if (t === 0) t = u + r
+
+  bucket.t += t
+  bucket.u += u
+  bucket.r += r
+}
+
+function formatFlow(bucket: FlowBucket): FlowVal {
+  const basis = Math.max(bucket.t, bucket.u, bucket.r)
+  const unit: FlowUnit = basis >= 1024 ? "GB" : "MB"
+  const factor = unit === "GB" ? 1024 : 1
+  const digits = unit === "GB" ? 2 : 0
+
+  return {
+    total: (bucket.t / factor).toFixed(digits),
+    used: (bucket.u / factor).toFixed(digits),
+    remain: (bucket.r / factor).toFixed(digits),
+    unit,
+  }
+}
+
 function parseData(res: any): ParsedData {
   try {
+    const root = res?.body ?? res
     let fee = "0"
     let planFee = "0"
-    if (res?.fee) {
-      fee = res.fee.curFee ?? res.fee.val ?? "0"
-      planFee = res.fee.realFee ?? res.fee.curFeeTotal ?? "0"
+    if (root?.fee) {
+      fee = root.fee.curFee ?? root.fee.val ?? "0"
+      planFee = root.fee.realFee ?? root.fee.curFeeTotal ?? "0"
     }
-
-    type FlowUnit = "MB" | "GB"
-    type FlowVal = { total: string; used: string; remain: string; unit: FlowUnit }
 
     let flowGen: FlowVal = { total: "0", used: "0", remain: "0", unit: "MB" }
     let flowDir: FlowVal = { total: "0", used: "0", remain: "0", unit: "MB" }
     let voice = { total: "0", used: "0", remain: "0", unit: "分钟" }
 
-    const num = (v: any) => {
-      const n = typeof v === "number" ? v : parseFloat(v ?? "0")
-      return Number.isFinite(n) ? n : 0
-    }
-
-    const fmt = (mb: number) =>
-      mb >= 1024
-        ? { val: (mb / 1024).toFixed(2), unit: "GB" as const }
-        : { val: Math.floor(mb).toString(), unit: "MB" as const }
-
-    if (res?.plan?.planRemianFlowListRes) {
-      const list = res.plan.planRemianFlowListRes.planRemianFlowRes || []
+    if (root?.plan?.planRemianFlowListRes) {
+      const list = root.plan.planRemianFlowListRes.planRemianFlowRes || []
       const nowMs = Date.now()
-
       const buckets = {
         gen: { t: 0, u: 0, r: 0 },
         dir: { t: 0, u: 0, r: 0 },
       }
 
-      let usedDeep = false
-
       for (const item of list) {
-        const type = item.flowtype == "1" ? "dir" : "gen"
+        const type = getFlowType(item)
         const plans = item.planRemianFlowInfoRes
-        if (!Array.isArray(plans)) continue
-        usedDeep = true
+        let addedDeep = false
 
-        for (const plan of plans) {
-          const exp = getPlanExpireMs(plan)
-          if (exp !== null && exp < nowMs) continue
+        if (Array.isArray(plans)) {
+          for (const plan of plans) {
+            const exp = getPlanExpireMs(plan)
+            if (exp !== null && exp < nowMs) continue
 
-          const flows = plan.flowInfoRes
-          if (!Array.isArray(flows)) continue
+            const flows = plan.flowInfoRes
+            if (!Array.isArray(flows)) continue
 
-          for (const f of flows) {
-            let t = num(f.totalRes)
-            let u = num(f.usedRes)
-            let r = num(f.remainRes)
-            if (u === 0 && t > r) u = t - r
-            if (t === 0) t = u + r
-
-            buckets[type].t += t
-            buckets[type].u += u
-            buckets[type].r += r
+            for (const flow of flows) {
+              addFlow(buckets[type], flow, flow.unit ?? plan.unit ?? item.unit)
+              addedDeep = true
+            }
           }
         }
-      }
 
-      if (!usedDeep) {
-        for (const item of list) {
-          const type = item.flowtype == "1" ? "dir" : "gen"
-          let t = num(item.flowSumNum)
-          let u = num(item.flowUsdNum)
-          let r = num(item.flowRemainNum)
-          if (u === 0 && t > r) u = t - r
-          if (t === 0) t = u + r
-          buckets[type].t += t
-          buckets[type].u += u
-          buckets[type].r += r
+        if (!addedDeep) {
+          addFlow(buckets[type], item, item.unit)
         }
       }
 
-      const g = fmt(buckets.gen.r)
-      flowGen = {
-        remain: g.val,
-        unit: g.unit,
-        total: (buckets.gen.t / (g.unit === "GB" ? 1024 : 1)).toFixed(g.unit === "GB" ? 2 : 0),
-        used: (buckets.gen.u / (g.unit === "GB" ? 1024 : 1)).toFixed(g.unit === "GB" ? 2 : 0),
-      }
-
-      const d = fmt(buckets.dir.r)
-      flowDir = {
-        remain: d.val,
-        unit: d.unit,
-        total: (buckets.dir.t / (d.unit === "GB" ? 1024 : 1)).toFixed(d.unit === "GB" ? 2 : 0),
-        used: (buckets.dir.u / (d.unit === "GB" ? 1024 : 1)).toFixed(d.unit === "GB" ? 2 : 0),
-      }
+      flowGen = formatFlow(buckets.gen)
+      flowDir = formatFlow(buckets.dir)
     }
 
-    if (res?.plan?.planRemianVoiceListRes) {
-      const v = res.plan.planRemianVoiceListRes.planRemianVoiceInfoRes?.[0]
+    if (root?.plan?.planRemianVoiceListRes) {
+      const v = root.plan.planRemianVoiceListRes.planRemianVoiceInfoRes?.[0]
       if (v) {
         let t = num(v.voiceSumNum)
         let u = num(v.voiceUsdNum)
