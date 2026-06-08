@@ -1,7 +1,7 @@
 {
   "icon" : "antenna.radiowaves.left.and.right",
   "description" : null,
-  "name" : "中國移動",
+  "name" : "中国移动",
   "intentInputTypes" : [
 
   ],
@@ -14,7 +14,7 @@
   "remoteResource" : {
     "hash" : "571cbfbfae09c4167b096de2bbc4d37b",
     "autoUpdateInterval" : 300,
-    "url" : "https:\/\/raw.githubusercontent.com\/ByteValley\/NetTool\/main\/Scripting\/Release\/中國移動.scripting"
+    "url" : "https:\/\/raw.githubusercontent.com\/ByteValley\/NetTool\/main\/Scripting\/Release\/中国移动.scripting"
   },
   "color" : "rgba(28, 140, 255,1)",
   "contributors" : [
